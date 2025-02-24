@@ -9,7 +9,7 @@
 > **Warning** ⚠️
 > This script **automatically delete existing partitions on disk**. Anyone who wants to use it should adjust according to their use case. This script was initially created for personal use, and i do not take responsibility for any damage or other issues that may arise from its use.
 
-## Steps
+## What this script does
 
 1. **User and System Settings Prompt**
    - Prompts for username, user password, root password, LUKS password and hostname.
