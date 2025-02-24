@@ -172,7 +172,7 @@ echo "root:$ROOTPASS" | chpasswd
 # Configure sudoers file
 # --------------------------------------------------------------------------------------------------------------------------
 
-echo -e "\n\n%$USERNAME ALL=(ALL:ALL) NOPASSWD: ALL" | sudo tee -a /etc/sudoers
+echo -e "\n\n%$USERNAME ALL=(ALL:ALL) NOPASSWD: ALL" | tee -a /etc/sudoers
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -187,12 +187,12 @@ sed -i '/^HOOKS=/s/ filesystems/ encrypt lvm2 filesystems/' /etc/mkinitcpio.conf
 # --------------------------------------------------------------------------------------------------------------------------
 
 grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
-sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
-sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
-sudo sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=$(blkid -s UUID -o value ${DISK}${PARTITION_2}):cryptroot root=/dev/mapper/sys-root rootfstype=btrfs rootflags=subvol=@\"|" /etc/default/grub
-sudo sed -i 's/^#GRUB_ENABLE_CRYPTODISK=.*/GRUB_ENABLE_CRYPTODISK=y/' /etc/default/grub
-echo -e "GRUB_DISABLE_SUBMENU=y\nGRUB_SAVEDEFAULT=true" | sudo tee -a /etc/default/grub
-sudo grub-mkconfig -o /boot/grub/grub.cfg
+sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=3/' /etc/default/grub
+sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
+sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=$(blkid -s UUID -o value ${DISK}${PARTITION_2}):cryptroot root=/dev/mapper/sys-root rootfstype=btrfs rootflags=subvol=@\"|" /etc/default/grub
+sed -i 's/^#GRUB_ENABLE_CRYPTODISK=.*/GRUB_ENABLE_CRYPTODISK=y/' /etc/default/grub
+echo -e "GRUB_DISABLE_SUBMENU=y\nGRUB_SAVEDEFAULT=true" | tee -a /etc/default/grub
+grub-mkconfig -o /boot/grub/grub.cfg
 
 
 # --------------------------------------------------------------------------------------------------------------------------
