@@ -12,7 +12,7 @@
 ## Steps
 
 1. **User and System Settings Prompt**
-   - Prompts for username, user password, root password, and hostname.
+   - Prompts for username, user password, root password, LUKS password and hostname.
 
 2. **Check for Existing PV and VG**
    - Checks for existing physical volumes (PV) and volume groups (VG) and removes them if found.
@@ -20,11 +20,11 @@
 3. **Clean Old Partition Table and Partitioning**
    - Cleans the old partition table and partitions the disk with a GPT partition table, creating EFI and system partitions.
 
-4. **Create LVM for the System Partition**
+4. **Create LUKS and LVM for System Partition**
    - Sets up LVM on the system partition, including encryption with LUKS.
 
 5. **Format and Mount Partitions**
-   - Formats the EFI and system partitions and mounts them with Btrfs subvolumes.
+   - Formats the EFI and system partitions and mounts the latter them with Btrfs subvolumes.
 
 6. **Install Base System**
    - Installs the base Arch Linux system and essential packages.
@@ -44,20 +44,20 @@
 11. **Configure Sudo**
     - Configures sudo to allow the new user to execute commands without a password.
 
-12. **Configure LVM and LUKS**
+12. **Configure LUKS and LVM in mkinitcpio**
     - Configures LVM and ecrypt hooks in mkinitcpio.
 
 13. **Install GRUB for UEFI**
     - Installs and configures the GRUB bootloader for UEFI systems.
 
-14. **Configure zram**
-    - Configures zram for improved memory management.
+14. **Configure ZRAM**
+    - Configures ZRAM for improved memory management.
 
 15. **Install Basic Utilities and Applications**
     - Installs a set of basic utilities and applications.
 
 16. **Install Audio Components**
-    - Installs audio components like PulseAudio and Pavucontrol.
+    - Installs PulseAudio and Pavucontrol.
 
 17. **Install Display Manager and Desktop Environment**
     - Installs the SDDM display manager and KDE Plasma desktop environment.
@@ -90,7 +90,7 @@
     - Installs the Yay AUR helper.
 
 27. **Exit Chroot and Reboot**
-    - Exits the chroot environment and reboots the system.
+    - Exits the chroot environment.
 
 ## Install
 
