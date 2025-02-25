@@ -9,107 +9,128 @@
 > **Warning** ⚠️
 > This script **automatically delete existing partitions on disk**. Anyone who wants to use it should adjust according to their use case. This script was initially created for personal use, and i do not take responsibility for any damage or other issues that may arise from its use.
 
-## What this script does
 
-1. **User and System Settings Prompt**
-   - Prompts for username, user password, root password, LUKS password and hostname.
+This script automates the installation of Arch Linux with a custom configuration. It includes setting up LUKS encryption, LVM, Btrfs, and various system configurations.
 
-2. **Check for Existing PV and VG**
-   - Checks for existing physical volumes (PV) and volume groups (VG) and removes them if found.
+## Features
 
-3. **Clean Old Partition Table and Partitioning**
-   - Cleans the old partition table and partitions the disk with a GPT partition table, creating EFI and system partitions.
+- LUKS encryption for the system partition
+- LVM setup
+- Btrfs with subvolumes
+- CachyOS kernel
+- Installation of essential packages and utilities
+- Configuration of mirrors, users, and system settings
+- Installation of GRUB for UEFI
+- Configuration of ZRAM
+- Installation of NVIDIA drivers
+- Enabling services like NetworkManager, SDDM, and more
 
-4. **Create LUKS and LVM for System Partition**
-   - Sets up LVM on the system partition, including encryption with LUKS.
+## Usage
 
-5. **Format and Mount Partitions**
-   - Formats the EFI and system partitions and mounts the latter them with Btrfs subvolumes.
+1. **Clone the repository:**
 
-6. **Install Base System**
-   - Installs the base Arch Linux system and essential packages.
+    ```bash
+    git clone https://github.com/yourusername/i-use-arch-BTW.git
+    cd i-use-arch-BTW
+    ```
 
-7. **Generate fstab File**
-   - Generates the fstab file for mounting partitions.
+2. **Make the script executable:**
 
-8. **Chroot into the System and Configure**
-   - Chroots into the new system and performs various configurations, including setting up locale, hostname, and time zone.
+    ```bash
+    chmod +x install.sh
+    ```
 
-9. **Configure Mirrors**
-   - Configures the package mirrors using Reflector.
+3. **Run the script:** 🚀
 
-10. **Create User and Set Passwords**
-    - Creates a new user and sets passwords for the user and root.
-
-11. **Configure Sudo**
-    - Configures sudo to allow the new user to execute commands without a password.
-
-12. **Configure LUKS and LVM in mkinitcpio**
-    - Configures LVM and ecrypt hooks in mkinitcpio.
-
-13. **Install GRUB for UEFI**
-    - Installs and configures the GRUB bootloader for UEFI systems.
-
-14. **Configure ZRAM**
-    - Configures ZRAM for improved memory management.
-
-15. **Install Basic Utilities and Applications**
-    - Installs a set of basic utilities and applications.
-
-16. **Install Audio Components**
-    - Installs PulseAudio and Pavucontrol.
-
-17. **Install Display Manager and Desktop Environment**
-    - Installs the SDDM display manager and KDE Plasma desktop environment.
-
-18. **Install NVIDIA Drivers and 32-bit Compatibility Libraries**
-    - Installs NVIDIA drivers and 32-bit compatibility libraries.
-
-19. **Enable Multilib Repository**
-    - Enables the Multilib repository in pacman.conf.
-
-20. **Enable Chaotic AUR**
-    - Adds and enables the Chaotic AUR repository.
-
-21. **Btrfs Snapshots on GRUB**
-    - Configures GRUB to detect Timeshift Btrfs snapshots automatically.
-
-22. **Enable Services**
-    - Enables essential services like NetworkManager, SDDM, Cronie, and grub-btrfsd.
-
-23. **Modify SDDM Settings for the Theme**
-    - Configures SDDM to use the Breeze theme.
-
-24. **Enable Login with Fish Shell**
-    - Sets Fish as the default shell for the new user and root.
-
-25. **Use Fastfetch Custom Theme System-wide**
-    - Configures Fastfetch to run at login.
-
-26. **Install Yay**
-    - Installs the Yay AUR helper.
-
-27. **Exit Chroot and Reboot**
-    - Exits the chroot environment.
-
-## Install
-
-1. **Clone the Repository**
-   ```
-   git clone https://github.com/am2998/i-use-arch-BTW.git
-   ```
-2. **Make the script executable**
-   ```
-   chmod +x install.sh
-   ```
-
-3. **Run the script** 🚀
-
-   ```
-   ./install.sh
-   ```
-3. **Reboot and enjoy!** 
+    ```bash
+     ./install.sh
+    ```
+4. **Reboot and enjoy!** 
 <br><br>
 
-> **Warning** ⚠️
+> **Note**
+> The script generates an install log file named `install.log` in the current directory.
+
+> **Note** ⚠️
 > Timeshift and Pika Backup need to be configured after install in order to snapshot and backup your sistem. 
+
+## Script Details
+
+### Prompt for User and System Settings
+
+The script will prompt you to enter the following details:
+
+- Username
+- Password for the user
+- Password for the root user
+- LUKS volume passphrase
+- Hostname
+
+### Partitioning and Formatting
+
+The script will:
+
+- Unmount any mounted partitions
+- Check for existing volume groups and physical volumes and remove them if found
+- Clean the old partition table and create new partitions
+- Set up LUKS encryption and LVM
+- Format and mount the partitions
+
+### Base System Installation
+
+The script will install the base system and essential packages using `pacstrap`.
+
+### System Configuration
+
+The script will:
+
+- Generate the `fstab` file
+- Chroot into the new system and configure basic settings
+- Configure mirrors using `reflector`
+- Enable Multilib repo and Chaotic AUR
+- Install Yay  
+- Install CachyOS kernel
+- Configure ZRAM
+- Create a user and set passwords
+- Configure the `sudoers` file
+- Install and configure GRUB for UEFI
+
+
+### Additional Packages and Services
+
+The script will install additional packages and enable necessary services:
+
+- Install basic utilities and applications
+- Install audio components
+- Install the display manager and desktop environment
+- Install NVIDIA drivers
+- Configure SSH
+- Modify SDDM settings for the theme
+- Use Fastfetch custom theme system-wide
+- Install Yay (AUR helper)
+
+### Enabling Services
+
+The script will enable the following services:
+
+- NetworkManager
+- SDDM
+- Cronie
+- Grub-btrfsd
+- SSHD
+
+### Exit Chroot
+
+The script will exit the chroot environment and complete the installation.
+
+## Notes
+
+- Ensure you have a stable internet connection during the installation.
+- The script is designed for a specific disk layout and may need adjustments for different setups.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](http://_vscodecontentref_/2) file for details.
+
+
+

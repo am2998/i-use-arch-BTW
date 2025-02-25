@@ -15,11 +15,13 @@ $$$$$$/        $$$$$$/  $$$$$$$/   $$$$$$$/       $$/   $$/ $$/        $$$$$$$/ 
 EOF
 
 
+exec > >(tee -a install.log) 2>&1
+
 # --------------------------------------------------------------------------------------------------------------------------
-# Prompt for user and system settings
+# Prompt for user and system settings                                                                                      
 # --------------------------------------------------------------------------------------------------------------------------
 
-echo -ne "Enter the username: "; read -r USERNAME
+echo -ne "\n\nEnter the username: "; read -r USERNAME
 echo -n "Enter the password for user $USERNAME: "; read -r -s USERPASS; echo
 echo -n "Enter the password for root user: "; read -r -s ROOTPASS; echo
 echo -n "Enter LUKS volume passphrase: "; read -r -s PASSPHRASE; echo
@@ -34,28 +36,16 @@ echo -e "\n\n# -----------------------------------------------------------------
 echo -e "# Check if there are existing PV and VG"
 echo -e "# --------------------------------------------------------------------------------------------------------------------------\n"
 
-umount -R /mnt
+umount -R /mnt 2>/dev/null
 VG_NAME=$(vgdisplay -c | cut -d: -f1 | xargs)
 
 if [ -z "$VG_NAME" ]; then
-    echo -e "\nNo volume group found. Skipping VG removal."
+    echo -e "No volume group found. Skipping VG removal."
 else
-    echo -e "\nRemoving volume group ${VG_NAME} and all associated logical volumes..."
-    yes | vgremove "$VG_NAME"
-fi
-
-
-echo -e "\n\n# --------------------------------------------------------------------------------------------------------------------------"
-echo -e "# Removing the associated physical volumes"
-echo -e "# --------------------------------------------------------------------------------------------------------------------------\n"
-
-PV_NAME=$(pvs --noheadings -o pv_name | grep -w "$VG_NAME" | xargs)
-
-if [ -z "$PV_NAME" ]; then
-    echo -e "\nNo physical volume found for ${VG_NAME}. Skipping PV removal."
-else
-    echo -e "\nRemoving physical volume ${PV_NAME}..."
-    yes | pvremove "$PV_NAME"
+    echo -e "Removing volume group ${VG_NAME} and all associated volumes..."
+    yes | vgremove "$VG_NAME" 2>/dev/null
+    PV_NAME=$(pvs --noheadings -o pv_name | grep -w "$VG_NAME" | xargs)
+    yes | pvremove "$PV_NAME" 2>/dev/null
 fi
 
 
@@ -63,7 +53,7 @@ echo -e "\n\n# -----------------------------------------------------------------
 echo -e "# Cleaning old partition table and partitioning"
 echo -e "# --------------------------------------------------------------------------------------------------------------------------\n"
 
-wipefs -a $DISK
+wipefs -a $DISK 2>/dev/null
 
 (
 echo g           # Create a GPT partition table
@@ -78,22 +68,29 @@ echo             # Default, 2
 echo             # Default
 echo             # Default, use the rest of the space
 echo w           # Write the partition table
-) | fdisk $DISK
+) | fdisk $DISK 2>/dev/null
+
 
 
 echo -e "\n\n# --------------------------------------------------------------------------------------------------------------------------"
 echo -e "# Create LUKS and LVM for the system partition"
 echo -e "# --------------------------------------------------------------------------------------------------------------------------\n"
 
-echo "$PASSPHRASE" | cryptsetup luksFormat ${DISK}${PARTITION_2}
+echo "$PASSPHRASE" | cryptsetup luksFormat ${DISK}${PARTITION_2} \
+  --type luks2 \
+  --hash sha512 \
+  --pbkdf argon2id \
+  --iter-time 5000 \
+  --cipher aes-xts-plain64 \
+  --key-size 256 \
+  --sector-size 512 \
+  --use-urandom
+
 echo "$PASSPHRASE" | cryptsetup open ${DISK}${PARTITION_2} cryptroot
 
-pvcreate /dev/mapper/cryptroot
+pvcreate --dataalignment 1m /dev/mapper/cryptroot
 vgcreate sys /dev/mapper/cryptroot
 yes | lvcreate -l 100%FREE -n root sys
-
-modprobe dm-mod
-vgchange -ay
 
 
 echo -e "\n\n# --------------------------------------------------------------------------------------------------------------------------"
@@ -121,7 +118,7 @@ echo -e "\n\n# -----------------------------------------------------------------
 echo -e "# Install base system"
 echo -e "# --------------------------------------------------------------------------------------------------------------------------\n"
 
-pacstrap /mnt base base-devel linux linux-headers linux-firmware lvm2 zram-generator btrfs-progs reflector man sudo vim nano networkmanager iw wpa_supplicant grub efibootmgr os-prober 
+pacstrap /mnt base base-devel linux-firmware lvm2 zram-generator btrfs-progs reflector man sudo vim nano git fish networkmanager iw wpa_supplicant grub efibootmgr os-prober amd-ucode
 
 
 echo -e "\n\n# --------------------------------------------------------------------------------------------------------------------------"
@@ -143,20 +140,20 @@ arch-chroot /mnt <<EOF
 # --------------------------------------------------------------------------------------------------------------------------
 
 echo "$HOSTNAME" > /etc/hostname
+
 echo "LANG=en_US.UTF-8" > /etc/locale.conf
+
 echo "KEYMAP=it" > /etc/vconsole.conf
+
 ln -sf /usr/share/zoneinfo/Europe/Rome /etc/localtime
+
 hwclock --systohc
+
 timedatectl set-ntp true
+
 sed -i '/^#it_IT.UTF-8/s/^#//g' /etc/locale.gen && locale-gen
+
 echo -e "127.0.0.1   localhost\n::1         localhost\n127.0.1.1   $HOSTNAME.localdomain   $HOSTNAME" > /etc/hosts
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Configure mirrors
-# --------------------------------------------------------------------------------------------------------------------------
-
-reflector --country "Italy" --latest 10 --sort rate --protocol https --age 7 --save /etc/pacman.d/mirrorlist
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -176,10 +173,64 @@ echo -e "\n\n%$USERNAME ALL=(ALL:ALL) NOPASSWD: ALL" | tee -a /etc/sudoers
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Configure LVM
+# Enable login with fish shell
 # --------------------------------------------------------------------------------------------------------------------------
 
-sed -i '/^HOOKS=/s/ filesystems/ encrypt lvm2 filesystems/' /etc/mkinitcpio.conf && mkinitcpio -P
+chsh -s /usr/bin/fish $USERNAME
+chsh -s /usr/bin/fish
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Configure mirrors
+# --------------------------------------------------------------------------------------------------------------------------
+
+reflector --country "Italy" --latest 10 --sort rate --protocol https --age 7 --save /etc/pacman.d/mirrorlist
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Enable Multilib repository
+# --------------------------------------------------------------------------------------------------------------------------
+
+sed -i '/^\[multilib\]/,/^$/s/^#//g' /etc/pacman.conf
+pacman -Syy
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Enable Chaotic AUR
+# --------------------------------------------------------------------------------------------------------------------------
+
+pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
+pacman-key --lsign-key 3056513887B78AEB
+pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
+pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+echo -e "\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist" | tee -a /etc/pacman.conf
+pacman -Syu --noconfirm
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Install Yay
+# --------------------------------------------------------------------------------------------------------------------------
+
+su -c "cd /home/$USERNAME/ && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm" $USERNAME
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Install CachyOS kernel
+# --------------------------------------------------------------------------------------------------------------------------
+
+curl -O https://mirror.cachyos.org/cachyos-repo.tar.xz && tar xvf cachyos-repo.tar.xz && cd cachyos-repo && yes | /bin/bash cachyos-repo.sh
+pacman -S --noconfirm cachyos-settings linux-cachyos linux-cachyos-headers
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Configure ZRAM
+# --------------------------------------------------------------------------------------------------------------------------
+
+bash -c 'cat > /etc/systemd/zram-generator.conf <<EOF
+[zram0]
+zram-size = min(ram, 8192)
+compression-algorithm = zstd
+EOF'
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -196,28 +247,24 @@ grub-mkconfig -o /boot/grub/grub.cfg
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Configure zram
+# Btrfs snapshots on GRUB 
 # --------------------------------------------------------------------------------------------------------------------------
 
-bash -c 'cat > /etc/systemd/zram-generator.conf <<EOF
-[zram0]
-zram-size = min(ram, 8192)
-compression-algorithm = zstd
-EOF'
+sed -i 's|ExecStart=/usr/bin/grub-btrfsd --syslog /.snapshots|ExecStart=/usr/bin/grub-btrfsd --syslog --timeshift-auto|' /usr/lib/systemd/system/grub-btrfsd.service
 
 
 # --------------------------------------------------------------------------------------------------------------------------
 # Install basic utilities and applications
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman -S --noconfirm firefox konsole okular dolphin kate net-tools timeshift fish git fastfetch bitwarden pika-backup htop rsync tree python openssh grub-btrfs inotify-tools
+pacman -S --noconfirm firefox konsole okular dolphin kate net-tools timeshift fastfetch bitwarden pika-backup rclone tree openssh grub-btrfs inotify-tools gamemode
 
 
 # --------------------------------------------------------------------------------------------------------------------------
 # Install audio components
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman -S --noconfirm pulseaudio pavucontrol-qt
+pacman -S --noconfirm pipewire wireplumber pipewire-pulse alsa-plugins alsa-firmware sof-firmware alsa-card-profiles
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -228,47 +275,20 @@ pacman -S --noconfirm sddm-kcm plasma sddm
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Install NVIDIA drivers and 32-bit compatibility libraries
+# Install NVIDIA drivers
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman -S --noconfirm nvidia-open nvidia-utils nvidia-settings amd-ucode
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Enable Multilib repository
-# --------------------------------------------------------------------------------------------------------------------------
-
-sed -i '/^\[multilib\]/,/^$/s/^#//g' /etc/pacman.conf
+pacman -S --noconfirm nvidia-dkms nvidia-settings nvidia-utils opencl-nvidia libxnvctrl
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Enable Chaotic AUR
+# Configure SSH
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
-pacman-key --lsign-key 3056513887B78AEB
-pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
-pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
-echo -e "\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist" | tee -a /etc/pacman.conf
-pacman -Syu --noconfirm
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Btrfs snapshots on GRUB 
-# --------------------------------------------------------------------------------------------------------------------------
-
-sed -i 's|ExecStart=/usr/bin/grub-btrfsd --syslog /.snapshots|ExecStart=/usr/bin/grub-btrfsd --syslog --timeshift-auto|' /usr/lib/systemd/system/grub-btrfsd.service
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Enable services
-# --------------------------------------------------------------------------------------------------------------------------
-
-systemctl enable NetworkManager
-systemctl enable sddm
-systemctl enable cronie 
-systemctl enable grub-btrfsd
-systemctl enable sshd
+PORT=$(shuf -i 1024-65535 -n 1)
+sed -i "/^\s*#\?Port\s.*$/c\Port $PORT" /etc/ssh/sshd_config
+sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -276,14 +296,6 @@ systemctl enable sshd
 # --------------------------------------------------------------------------------------------------------------------------
 
 sed -i 's/^Current=.*$/Current=breeze/' /usr/lib/sddm/sddm.conf.d/default.conf
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Enable login with fish shell
-# --------------------------------------------------------------------------------------------------------------------------
-
-chsh -s /usr/bin/fish $USERNAME
-chsh -s /usr/bin/fish
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -296,16 +308,14 @@ echo -e "function fish_greeting\n    fastfetch\nend" > /home/$USERNAME/.config/f
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Install Yay
+# Enable services
 # --------------------------------------------------------------------------------------------------------------------------
 
-su -c "cd /home/$USERNAME/ && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm" $USERNAME
-
-
-
-
-🟢 Arch has been installed successfully!
-🚀 Reboot the system and login with the user $USERNAME
+systemctl enable NetworkManager
+systemctl enable sddm
+systemctl enable cronie 
+systemctl enable grub-btrfsd
+systemctl enable sshd
 
 
 EOF
