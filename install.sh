@@ -199,14 +199,6 @@ reflector --country "Italy" --latest 10 --sort rate --protocol https --age 7 --s
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Enable Multilib repository
-# --------------------------------------------------------------------------------------------------------------------------
-
-sed -i '/^\[multilib\]/,/^$/s/^#//g' /etc/pacman.conf
-pacman -Syy
-
-
-# --------------------------------------------------------------------------------------------------------------------------
 # Install CachyOS kernel
 # --------------------------------------------------------------------------------------------------------------------------
 
@@ -247,17 +239,32 @@ sed -i 's|ExecStart=/usr/bin/grub-btrfsd --syslog /.snapshots|ExecStart=/usr/bin
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Install basic utilities and applications
+# Enable Multilib repository
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman -S --noconfirm konsole okular dolphin kcalc kate net-tools timeshift fastfetch bitwarden pika-backup rclone openssh git flatpak
+sed -i '/^\[multilib\]/,/^$/s/^#//g' /etc/pacman.conf
+pacman -Syy
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Install Yay
+# --------------------------------------------------------------------------------------------------------------------------
+
+su -c "cd && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si && cd .. && rm -rf yay" $USER
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Install utilities and applications
+# --------------------------------------------------------------------------------------------------------------------------
+
+pacman -S --noconfirm konsole okular dolphin kcalc kate net-tools timeshift fastfetch pika-backup rclone openssh git flatpak tar
 
 
 # --------------------------------------------------------------------------------------------------------------------------
 # Install audio components
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman -S --noconfirm pipewire wireplumber pipewire-pulse alsa-plugins alsa-firmware sof-firmware alsa-card-profiles
+pacman -S --noconfirm pipewire wireplumber pipewire-pulse alsa-plugins alsa-firmware sof-firmware alsa-card-profiles pavucontrol-qt
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -295,8 +302,7 @@ sed -i 's/^Current=.*$/Current=breeze/' /usr/lib/sddm/sddm.conf.d/default.conf
 # Use Fastfetch custom theme system-wide
 # --------------------------------------------------------------------------------------------------------------------------
 
-su -c "fastfetch >/dev/null" $USER
-mkdir -p /home/$USER/.config/fish/functions
+su -c "fastfetch >/dev/null && mkdir -p /home/$USER/.config/fish/functions" $USER
 echo -e "function fish_greeting\n    fastfetch\nend" > /home/$USER/.config/fish/functions/fish_greeting.fish
 
 

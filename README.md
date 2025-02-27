@@ -18,7 +18,7 @@ This script automates the installation of Arch Linux with a custom configuration
 - LVM setup
 - Btrfs with subvolumes
 - CachyOS kernel
-- Configuration of ZRAM
+- ZRAM
 - KDE with SDDM
 - Installation of GRUB for UEFI
 - Installation of NVIDIA drivers
