@@ -87,7 +87,7 @@ echo             # Default, 2
 echo             # Default
 echo             # Default, use the rest of the space
 echo w           # Write the partition table
-) | fdisk $DISK 2
+) | fdisk $DISK
 
 
 
