@@ -18,11 +18,12 @@ This script automates the installation of Arch Linux with a custom configuration
 - LVM setup
 - Btrfs with subvolumes
 - CachyOS kernel
+- Configuration of ZRAM
+- KDE with SDDM
+- Installation of GRUB for UEFI
+- Installation of NVIDIA drivers
 - Installation of essential packages and utilities
 - Configuration of mirrors, users, and system settings
-- Installation of GRUB for UEFI
-- Configuration of ZRAM
-- Installation of NVIDIA drivers
 - Enabling services like NetworkManager, SDDM, and more
 
 ## Usage
@@ -49,7 +50,7 @@ This script automates the installation of Arch Linux with a custom configuration
 <br><br>
 
 > **Note**
-> The script generates an install log file named `install.log` in the current directory.
+> The script generates an install log file named `result.log` in the current directory.
 
 > **Note** ⚠️
 > Timeshift and Pika Backup need to be configured after install in order to snapshot and backup your sistem. 
@@ -87,8 +88,7 @@ The script will:
 - Generate the `fstab` file
 - Chroot into the new system and configure basic settings
 - Configure mirrors using `reflector`
-- Enable Multilib repo and Chaotic AUR
-- Install Yay  
+- Enable Multilib repo
 - Install CachyOS kernel
 - Configure ZRAM
 - Create a user and set passwords
@@ -102,12 +102,11 @@ The script will install additional packages and enable necessary services:
 
 - Install basic utilities and applications
 - Install audio components
-- Install the display manager and desktop environment
+- Install SDDM and KDE
 - Install NVIDIA drivers
 - Configure SSH
 - Modify SDDM settings for the theme
 - Use Fastfetch custom theme system-wide
-- Install Yay (AUR helper)
 
 ### Enabling Services
 

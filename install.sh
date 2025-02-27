@@ -15,21 +15,35 @@ $$$$$$/        $$$$$$/  $$$$$$$/   $$$$$$$/       $$/   $$/ $$/        $$$$$$$/ 
 EOF
 
 
-exec > >(tee -a install.log) 2>&1
+exec > >(tee -a result.log) 2>&1
+
 
 # --------------------------------------------------------------------------------------------------------------------------
 # Prompt for user and system settings                                                                                      
 # --------------------------------------------------------------------------------------------------------------------------
 
-echo -ne "\n\nEnter the username: "; read -r USERNAME
-echo -n "Enter the password for user $USERNAME: "; read -r -s USERPASS; echo
-echo -n "Enter the password for root user: "; read -r -s ROOTPASS; echo
-echo -n "Enter LUKS volume passphrase: "; read -r -s PASSPHRASE; echo
-echo -n "Enter the hostname: "; read -r HOSTNAME
+get_password() {
+    local prompt=$1
+    local password_var
+    local password_recheck_var
 
-DISK="nvme0n1"
-PARTITION_1="p1"
-PARTITION_2="p2"
+    while true; do
+        echo -n "$prompt: "; read -r -s password_var; echo
+        echo -n "Re-enter password: "; read -r -s password_recheck_var; echo
+        if [ "$password_var" = "$password_recheck_var" ]; then
+            eval "$2='$password_var'"
+            break
+        else
+            echo "Passwords do not match. Please enter a new password."
+        fi
+    done
+}
+
+echo -ne "\n\nEnter the username: "; read -r USER
+get_password "Enter the password for user $USER" USERPASS
+get_password "Enter the password for user root" ROOTPASS
+get_password "Enter LUKS volume password" PASSPHRASE
+echo -n "Enter the hostname: "; read -r HOSTNAME
 
 
 echo -e "\n\n# --------------------------------------------------------------------------------------------------------------------------"
@@ -53,7 +67,12 @@ echo -e "\n\n# -----------------------------------------------------------------
 echo -e "# Cleaning old partition table and partitioning"
 echo -e "# --------------------------------------------------------------------------------------------------------------------------\n"
 
-wipefs -a $DISK 2>/dev/null
+
+DISK="nvme0n1"
+PARTITION_1="p1"
+PARTITION_2="p2"
+
+wipefs -a -f $DISK 2>/dev/null
 
 (
 echo g           # Create a GPT partition table
@@ -118,7 +137,7 @@ echo -e "\n\n# -----------------------------------------------------------------
 echo -e "# Install base system"
 echo -e "# --------------------------------------------------------------------------------------------------------------------------\n"
 
-pacstrap /mnt base base-devel linux-firmware lvm2 zram-generator btrfs-progs reflector man sudo vim nano git fish networkmanager iw wpa_supplicant grub efibootmgr os-prober amd-ucode
+pacstrap /mnt base base-devel linux-firmware lvm2 zram-generator btrfs-progs reflector man sudo nano fish networkmanager iw wpa_supplicant grub efibootmgr grub-btrfs inotify-tools amd-ucode
 
 
 echo -e "\n\n# --------------------------------------------------------------------------------------------------------------------------"
@@ -143,7 +162,7 @@ echo "$HOSTNAME" > /etc/hostname
 
 echo "LANG=en_US.UTF-8" > /etc/locale.conf
 
-echo "KEYMAP=it" > /etc/vconsole.conf
+echo "KEYMAP=us" > /etc/vconsole.conf
 
 ln -sf /usr/share/zoneinfo/Europe/Rome /etc/localtime
 
@@ -160,8 +179,8 @@ echo -e "127.0.0.1   localhost\n::1         localhost\n127.0.1.1   $HOSTNAME.loc
 # Create user and set passwords
 # --------------------------------------------------------------------------------------------------------------------------
 
-useradd -m -G wheel $USERNAME
-echo "$USERNAME:$USERPASS" | chpasswd
+useradd -m $USER
+echo "$USER:$USERPASS" | chpasswd
 echo "root:$ROOTPASS" | chpasswd
 
 
@@ -169,15 +188,7 @@ echo "root:$ROOTPASS" | chpasswd
 # Configure sudoers file
 # --------------------------------------------------------------------------------------------------------------------------
 
-echo -e "\n\n%$USERNAME ALL=(ALL:ALL) NOPASSWD: ALL" | tee -a /etc/sudoers
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Enable login with fish shell
-# --------------------------------------------------------------------------------------------------------------------------
-
-chsh -s /usr/bin/fish $USERNAME
-chsh -s /usr/bin/fish
+echo -e "\n\n%$USER ALL=(ALL:ALL) ALL" | tee -a /etc/sudoers
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -196,30 +207,12 @@ pacman -Syy
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Enable Chaotic AUR
-# --------------------------------------------------------------------------------------------------------------------------
-
-pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
-pacman-key --lsign-key 3056513887B78AEB
-pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
-pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
-echo -e "\n[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist" | tee -a /etc/pacman.conf
-pacman -Syu --noconfirm
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Install Yay
-# --------------------------------------------------------------------------------------------------------------------------
-
-su -c "cd /home/$USERNAME/ && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm" $USERNAME
-
-
-# --------------------------------------------------------------------------------------------------------------------------
 # Install CachyOS kernel
 # --------------------------------------------------------------------------------------------------------------------------
 
 curl -O https://mirror.cachyos.org/cachyos-repo.tar.xz && tar xvf cachyos-repo.tar.xz && cd cachyos-repo && yes | /bin/bash cachyos-repo.sh
 pacman -S --noconfirm cachyos-settings linux-cachyos linux-cachyos-headers
+cd .. && rm -rf cachyos-*
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -257,7 +250,7 @@ sed -i 's|ExecStart=/usr/bin/grub-btrfsd --syslog /.snapshots|ExecStart=/usr/bin
 # Install basic utilities and applications
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman -S --noconfirm firefox konsole okular dolphin kate net-tools timeshift fastfetch bitwarden pika-backup rclone tree openssh grub-btrfs inotify-tools gamemode
+pacman -S --noconfirm konsole okular dolphin kcalc kate net-tools timeshift fastfetch bitwarden pika-backup rclone openssh git flatpak
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -268,10 +261,10 @@ pacman -S --noconfirm pipewire wireplumber pipewire-pulse alsa-plugins alsa-firm
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Install display manager and desktop environment
+# Install SDDM and Plasma
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman -S --noconfirm sddm-kcm plasma sddm
+pacman -S --noconfirm plasma sddm
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -302,9 +295,17 @@ sed -i 's/^Current=.*$/Current=breeze/' /usr/lib/sddm/sddm.conf.d/default.conf
 # Use Fastfetch custom theme system-wide
 # --------------------------------------------------------------------------------------------------------------------------
 
-su -c "fastfetch >/dev/null" $USERNAME
-mkdir -p /home/$USERNAME/.config/fish/functions
-echo -e "function fish_greeting\n    fastfetch\nend" > /home/$USERNAME/.config/fish/functions/fish_greeting.fish
+su -c "fastfetch >/dev/null" $USER
+mkdir -p /home/$USER/.config/fish/functions
+echo -e "function fish_greeting\n    fastfetch\nend" > /home/$USER/.config/fish/functions/fish_greeting.fish
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Enable login with fish shell
+# --------------------------------------------------------------------------------------------------------------------------
+
+chsh -s /usr/bin/fish $USER
+chsh -s /usr/bin/fish
 
 
 # --------------------------------------------------------------------------------------------------------------------------
