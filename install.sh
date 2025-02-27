@@ -68,11 +68,11 @@ echo -e "# Cleaning old partition table and partitioning"
 echo -e "# --------------------------------------------------------------------------------------------------------------------------\n"
 
 
-DISK="nvme0n1"
+DISK="/dev/nvme0n1"
 PARTITION_1="p1"
 PARTITION_2="p2"
 
-wipefs -a -f $DISK 2>/dev/null
+wipefs -a -f $DISK 
 
 (
 echo g           # Create a GPT partition table
@@ -87,7 +87,7 @@ echo             # Default, 2
 echo             # Default
 echo             # Default, use the rest of the space
 echo w           # Write the partition table
-) | fdisk $DISK 2>/dev/null
+) | fdisk $DISK 2
 
 
 
