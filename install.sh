@@ -137,7 +137,7 @@ echo -e "\n\n# -----------------------------------------------------------------
 echo -e "# Install base system"
 echo -e "# --------------------------------------------------------------------------------------------------------------------------\n"
 
-pacstrap /mnt base base-devel linux-firmware lvm2 zram-generator btrfs-progs reflector man sudo nano fish networkmanager iw wpa_supplicant grub efibootmgr grub-btrfs inotify-tools amd-ucode
+pacstrap /mnt base base-devel linux-firmware lvm2 zram-generator btrfs-progs reflector man sudo nano git networkmanager grub efibootmgr grub-btrfs inotify-tools amd-ucode
 
 
 echo -e "\n\n# --------------------------------------------------------------------------------------------------------------------------"
@@ -188,7 +188,7 @@ echo "root:$ROOTPASS" | chpasswd
 # Configure sudoers file
 # --------------------------------------------------------------------------------------------------------------------------
 
-echo -e "\n\n%$USER ALL=(ALL:ALL) ALL" | tee -a /etc/sudoers
+echo -e "\n\n%$USER ALL=(ALL:ALL) NOPASSWD: ALL" | tee -a /etc/sudoers
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -199,11 +199,26 @@ reflector --country "Italy" --latest 10 --sort rate --protocol https --age 7 --s
 
 
 # --------------------------------------------------------------------------------------------------------------------------
+# Install Yay
+# --------------------------------------------------------------------------------------------------------------------------
+
+su -c "cd && git clone https://aur.archlinux.org/yay.git && cd yay && yes | makepkg -si && cd .. && rm -rf yay" $USER
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Enable Multilib repository
+# --------------------------------------------------------------------------------------------------------------------------
+
+sed -i '/\[multilib\]/,/Include/ s/^#//' /etc/pacman.conf
+pacman -Syy
+
+
+# --------------------------------------------------------------------------------------------------------------------------
 # Install CachyOS kernel
 # --------------------------------------------------------------------------------------------------------------------------
 
 curl -O https://mirror.cachyos.org/cachyos-repo.tar.xz && tar xvf cachyos-repo.tar.xz && cd cachyos-repo && yes | /bin/bash cachyos-repo.sh
-pacman -S --noconfirm cachyos-settings linux-cachyos linux-cachyos-headers
+pacman -S --noconfirm cachyos-settings linux-cachyos linux-cachyos-headers proton-cachyos
 cd .. && rm -rf cachyos-*
 
 
@@ -213,7 +228,7 @@ cd .. && rm -rf cachyos-*
 
 bash -c 'cat > /etc/systemd/zram-generator.conf <<EOF
 [zram0]
-zram-size = min(ram, 8192)
+zram-size = min(ram, 32768)
 compression-algorithm = zstd
 EOF'
 
@@ -228,6 +243,8 @@ sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
 sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=$(blkid -s UUID -o value ${DISK}${PARTITION_2}):cryptroot root=/dev/mapper/sys-root rootfstype=btrfs rootflags=subvol=@\"|" /etc/default/grub
 sed -i 's/^#GRUB_ENABLE_CRYPTODISK=.*/GRUB_ENABLE_CRYPTODISK=y/' /etc/default/grub
 echo -e "GRUB_DISABLE_SUBMENU=y\nGRUB_SAVEDEFAULT=true" | tee -a /etc/default/grub
+sed -i '/^#GRUB_GFXMODE/c\GRUB_GFXMODE=1920x1080' /etc/default/grub && sed -i '/^#GRUB_GFXPAYLOAD_LINUX/c\GRUB_GFXPAYLOAD_LINUX=keep' /etc/default/grub
+
 grub-mkconfig -o /boot/grub/grub.cfg
 
 
@@ -239,25 +256,10 @@ sed -i 's|ExecStart=/usr/bin/grub-btrfsd --syslog /.snapshots|ExecStart=/usr/bin
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Enable Multilib repository
-# --------------------------------------------------------------------------------------------------------------------------
-
-sed -i '/^\[multilib\]/,/^$/s/^#//g' /etc/pacman.conf
-pacman -Syy
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Install Yay
-# --------------------------------------------------------------------------------------------------------------------------
-
-su -c "cd && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si && cd .. && rm -rf yay" $USER
-
-
-# --------------------------------------------------------------------------------------------------------------------------
 # Install utilities and applications
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman -S --noconfirm konsole okular dolphin kcalc kate net-tools timeshift fastfetch pika-backup rclone openssh git flatpak tar
+pacman -S --noconfirm net-tools timeshift openssh flatpak unzip firefox
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -268,50 +270,42 @@ pacman -S --noconfirm pipewire wireplumber pipewire-pulse alsa-plugins alsa-firm
 
 
 # --------------------------------------------------------------------------------------------------------------------------
-# Install SDDM and Plasma
-# --------------------------------------------------------------------------------------------------------------------------
-
-pacman -S --noconfirm plasma sddm
-
-
-# --------------------------------------------------------------------------------------------------------------------------
 # Install NVIDIA drivers
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman -S --noconfirm nvidia-dkms nvidia-settings nvidia-utils opencl-nvidia libxnvctrl
+pacman -S --noconfirm nvidia-open-dkms nvidia-settings nvidia-utils opencl-nvidia libxnvctrl
+
+
+# --------------------------------------------------------------------------------------------------------------------------
+# Install Hyprland and SDDM
+# --------------------------------------------------------------------------------------------------------------------------
+
+pacman -Syu --noconfirm sddm 
+pacman -Syu --noconfirm qt6-svg qt6-declarative qt5-quickcontrols2
+curl -L -o catppuccin-mocha.zip https://github.com/catppuccin/sddm/releases/download/v1.0.0/catppuccin-mocha.zip
+unzip catppuccin-mocha.zip -d /usr/share/sddm/themes/ && rm -rf catppuccin-mocha.zip 
+sed -i 's/^Current=.*$/Current=catppuccin-mocha/' /usr/lib/sddm/sddm.conf.d/default.conf
+
+
+pacman -S --noconfirm hyprland wayland xorg-xwayland
+
+
+su -c "(echo N; echo n; echo i) | bash <(curl -s 'https://end-4.github.io/dots-hyprland-wiki/setup.sh')" $USER
+for file in /home/$USER/.config/hypr/*.new; do mv "$file" "${file%.new}"; done
+
+echo -e "[Desktop Entry]\nName=Hyprland\nComment=Hyprland Wayland Session\nExec=hyprland\nType=Application\nDesktopNames=Hyprland" | tee /usr/share/wayland-sessions/hyprland.desktop > /dev/null
+sed -i '/^\[X11\]/,/\[.*\]/s/^SessionDir=.*$/SessionDir=/' /usr/lib/sddm/sddm.conf.d/default.conf
+find /usr/share/wayland-sessions -type f ! -name 'hyprland.desktop' -exec rm -f {} +
 
 
 # --------------------------------------------------------------------------------------------------------------------------
 # Configure SSH
 # --------------------------------------------------------------------------------------------------------------------------
 
-PORT=$(shuf -i 1024-65535 -n 1)
+PORT=2222
 sed -i "/^\s*#\?Port\s.*$/c\Port $PORT" /etc/ssh/sshd_config
 sed -i 's/^#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
 sed -i 's/^#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Modify SDDM settings for the theme
-# --------------------------------------------------------------------------------------------------------------------------
-
-sed -i 's/^Current=.*$/Current=breeze/' /usr/lib/sddm/sddm.conf.d/default.conf
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Use Fastfetch custom theme system-wide
-# --------------------------------------------------------------------------------------------------------------------------
-
-su -c "fastfetch >/dev/null && mkdir -p /home/$USER/.config/fish/functions" $USER
-echo -e "function fish_greeting\n    fastfetch\nend" > /home/$USER/.config/fish/functions/fish_greeting.fish
-
-
-# --------------------------------------------------------------------------------------------------------------------------
-# Enable login with fish shell
-# --------------------------------------------------------------------------------------------------------------------------
-
-chsh -s /usr/bin/fish $USER
-chsh -s /usr/bin/fish
 
 
 # --------------------------------------------------------------------------------------------------------------------------
