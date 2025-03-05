@@ -160,8 +160,6 @@ arch-chroot /mnt <<EOF
 
 echo "$HOSTNAME" > /etc/hostname
 
-echo "LANG=en_US.UTF-8" > /etc/locale.conf
-
 echo "KEYMAP=us" > /etc/vconsole.conf
 
 ln -sf /usr/share/zoneinfo/Europe/Rome /etc/localtime
@@ -170,7 +168,7 @@ hwclock --systohc
 
 timedatectl set-ntp true
 
-sed -i '/^#it_IT.UTF-8/s/^#//g' /etc/locale.gen && locale-gen
+sed -i '/^#en_US.UTF-8/s/^#//g' /etc/locale.gen && locale-gen
 
 echo -e "127.0.0.1   localhost\n::1         localhost\n127.0.1.1   $HOSTNAME.localdomain   $HOSTNAME" > /etc/hosts
 
@@ -228,9 +226,15 @@ cd .. && rm -rf cachyos-*
 
 bash -c 'cat > /etc/systemd/zram-generator.conf <<EOF
 [zram0]
-zram-size = min(ram, 32768)
+zram-size = min(ram, 16384)
 compression-algorithm = zstd
 EOF'
+
+echo "vm.swappiness = 180" >> /etc/sysctl.d/99-vm-zram-parameters.conf
+echo "vm.watermark_boost_factor = 0" >> /etc/sysctl.d/99-vm-zram-parameters.conf
+echo "vm.watermark_scale_factor = 125" >> /etc/sysctl.d/99-vm-zram-parameters.conf
+echo "vm.page-cluster = 0" >> /etc/sysctl.d/99-vm-zram-parameters.conf
+
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -243,7 +247,8 @@ sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
 sed -i "s|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=$(blkid -s UUID -o value ${DISK}${PARTITION_2}):cryptroot root=/dev/mapper/sys-root rootfstype=btrfs rootflags=subvol=@\"|" /etc/default/grub
 sed -i 's/^#GRUB_ENABLE_CRYPTODISK=.*/GRUB_ENABLE_CRYPTODISK=y/' /etc/default/grub
 echo -e "GRUB_DISABLE_SUBMENU=y\nGRUB_SAVEDEFAULT=true" | tee -a /etc/default/grub
-sed -i '/^#GRUB_GFXMODE/c\GRUB_GFXMODE=1920x1080' /etc/default/grub && sed -i '/^#GRUB_GFXPAYLOAD_LINUX/c\GRUB_GFXPAYLOAD_LINUX=keep' /etc/default/grub
+sed -i '/^#GRUB_GFXMODE/c\GRUB_GFXMODE=1920x1080' /etc/default/grub
+sed -i '/^#GRUB_GFXPAYLOAD_LINUX/c\GRUB_GFXPAYLOAD_LINUX=keep' /etc/default/grub
 
 grub-mkconfig -o /boot/grub/grub.cfg
 
@@ -259,7 +264,7 @@ sed -i 's|ExecStart=/usr/bin/grub-btrfsd --syslog /.snapshots|ExecStart=/usr/bin
 # Install utilities and applications
 # --------------------------------------------------------------------------------------------------------------------------
 
-pacman -S --noconfirm net-tools timeshift openssh flatpak unzip firefox
+pacman -S --noconfirm net-tools timeshift openssh flatpak unzip
 
 
 # --------------------------------------------------------------------------------------------------------------------------
@@ -283,7 +288,8 @@ pacman -S --noconfirm nvidia-open-dkms nvidia-settings nvidia-utils opencl-nvidi
 pacman -Syu --noconfirm sddm 
 pacman -Syu --noconfirm qt6-svg qt6-declarative qt5-quickcontrols2
 curl -L -o catppuccin-mocha.zip https://github.com/catppuccin/sddm/releases/download/v1.0.0/catppuccin-mocha.zip
-unzip catppuccin-mocha.zip -d /usr/share/sddm/themes/ && rm -rf catppuccin-mocha.zip 
+rm rf /usr/share/sddm/themes/*
+unzip catppuccin-mocha.zip -d /usr/share/sddm/themes/ && rm -rf catppuccin-mocha.zip &&m
 sed -i 's/^Current=.*$/Current=catppuccin-mocha/' /usr/lib/sddm/sddm.conf.d/default.conf
 
 
@@ -293,7 +299,7 @@ pacman -S --noconfirm hyprland wayland xorg-xwayland
 su -c "(echo N; echo n; echo i) | bash <(curl -s 'https://end-4.github.io/dots-hyprland-wiki/setup.sh')" $USER
 for file in /home/$USER/.config/hypr/*.new; do mv "$file" "${file%.new}"; done
 
-echo -e "[Desktop Entry]\nName=Hyprland\nComment=Hyprland Wayland Session\nExec=hyprland\nType=Application\nDesktopNames=Hyprland" | tee /usr/share/wayland-sessions/hyprland.desktop > /dev/null
+echo -e "[Desktop Entry]\nName=Hyprland\nComment=Hyprland Wayland Session\nExec=hyprland\nType=Application\nDesktopNames=Hyprland" | tee /usr/share/wayland-sessions/hyprland.desktop
 sed -i '/^\[X11\]/,/\[.*\]/s/^SessionDir=.*$/SessionDir=/' /usr/lib/sddm/sddm.conf.d/default.conf
 find /usr/share/wayland-sessions -type f ! -name 'hyprland.desktop' -exec rm -f {} +
 
