@@ -56,6 +56,9 @@ This script automates the installation of Arch Linux with a custom configuration
 > **Note** ⚠️
 > Timeshift need to be configured after install in order to snapshot and backup your sistem. 
 
+> **Note** ⚠️
+> Script allows sudo privileges with no password. Change it after install.
+
 ## Script Details
 
 ### Prompt for User and System Settings
