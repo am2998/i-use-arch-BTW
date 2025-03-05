@@ -14,17 +14,18 @@ This script automates the installation of Arch Linux with a custom configuration
 
 ## Features
 
-- LUKS encryption for the system partition
-- LVM setup
-- Btrfs with subvolumes
+- LUKS encryption
+- LVM
+- Btrfs file system
 - CachyOS kernel
-- ZRAM
-- KDE with SDDM
-- Installation of GRUB for UEFI
-- Installation of NVIDIA drivers
-- Installation of essential packages and utilities
-- Configuration of mirrors, users, and system settings
-- Enabling services like NetworkManager, SDDM, and more
+- ZRAM 
+- Hyprland with SDDM
+- end-4 dotfiles
+- GRUB for UEFI
+- Open NVIDIA drivers
+- Pipewire for audio
+- Timeshift snapshots
+
 
 ## Usage
 
@@ -53,7 +54,7 @@ This script automates the installation of Arch Linux with a custom configuration
 > The script generates an install log file named `result.log` in the current directory.
 
 > **Note** ⚠️
-> Timeshift and Pika Backup need to be configured after install in order to snapshot and backup your sistem. 
+> Timeshift need to be configured after install in order to snapshot and backup your sistem. 
 
 ## Script Details
 
@@ -75,7 +76,7 @@ The script will:
 - Check for existing volume groups and physical volumes and remove them if found
 - Clean the old partition table and create new partitions
 - Set up LUKS encryption and LVM
-- Format and mount the partitions
+- Format partitions with Btrfs file system and mount them
 
 ### Base System Installation
 
@@ -101,12 +102,11 @@ The script will:
 The script will install additional packages and enable necessary services:
 
 - Install basic utilities and applications
-- Install audio components
-- Install SDDM and KDE
+- Install Pipewire audio components
+- Install Hyprland and SDDM
 - Install NVIDIA drivers
 - Configure SSH
 - Modify SDDM settings for the theme
-- Use Fastfetch custom theme system-wide
 
 ### Enabling Services
 
