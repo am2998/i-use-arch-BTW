@@ -235,6 +235,7 @@ echo "vm.watermark_boost_factor = 0" >> /etc/sysctl.d/99-vm-zram-parameters.conf
 echo "vm.watermark_scale_factor = 125" >> /etc/sysctl.d/99-vm-zram-parameters.conf
 echo "vm.page-cluster = 0" >> /etc/sysctl.d/99-vm-zram-parameters.conf
 
+sysctl --system
 
 
 # --------------------------------------------------------------------------------------------------------------------------
